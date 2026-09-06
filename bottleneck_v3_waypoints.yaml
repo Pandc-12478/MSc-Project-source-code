@@ -1,0 +1,60 @@
+map_id: bottleneck_map_v3
+frame_id: map
+validated_for_motion: false
+
+points:
+
+  A_START:
+    description: "Common experiment start point"
+    x: 0.064715
+    y: -0.012736
+    yaw: -0.0543
+
+  P1_CONFLICT:
+    description: "Conflict point"
+    x: 1.338700
+    y: 0.075850
+    yaw: 0.0063
+
+  P2_STRAIGHT_YIELD_END:
+    description: "STRAIGHT_YIELD final reverse point"
+    x: 0.857683
+    y: 0.086424
+    yaw: 0.0492
+
+  P3_SIDE_YIELD_STRAIGHT:
+    description: "SIDE_YIELD intermediate straight reverse point"
+    x: 1.090262
+    y: 0.044134
+    yaw: -0.0045
+
+  P4_SIDE_YIELD_END:
+    description: "SIDE_YIELD final obstacle-side yielding point"
+    x: 0.984542
+    y: -0.579629
+    yaw: 1.542
+
+  P5_CLAIM_END:
+    description: "CLAIM final forward point"
+    x: 2.802897
+    y: 0.001838
+    yaw: 0.0108
+
+routes:
+
+  APPROACH:
+    - A_START
+    - P1_CONFLICT
+
+  STRAIGHT_YIELD:
+    - P1_CONFLICT
+    - P2_STRAIGHT_YIELD_END
+
+  SIDE_YIELD:
+    - P1_CONFLICT
+    - P3_SIDE_YIELD_STRAIGHT
+    - P4_SIDE_YIELD_END
+
+  CLAIM:
+    - P1_CONFLICT
+    - P5_CLAIM_END
