@@ -1,81 +1,119 @@
-# TurtleBot3 eHMI bottleneck study — source code
+# TurtleBot3 eHMI Bottleneck Study — Source Code
 
-ROS 2 Humble scripts for a TurtleBot3 Waffle pedestrian–robot encounter study. The controller combines localization, odometry, laser-based pedestrian detection and six condition selections. The browser display receives eHMI state and countdown messages through a small HTTP bridge.
+Source code and configuration for an MSc research project investigating pedestrian responses to a TurtleBot3 Waffle in narrow-path encounters. The study compared three robot movement strategies with neutral and explicit eHMI communication, producing six experimental conditions.
 
-## Status and provenance
+## Project overview
 
-This repository was inspected at commit `a7075ca0add633e870ffd14cae0b9278e7fc8aa7` (the uploaded August 19 source snapshot). The September 6 packaging changes improve paths, startup and documentation. They do **not** establish that this snapshot is the final code used for all study trials. Confirm that against the experiment computer before citing it as the final experimental implementation.
+The system combines:
 
-**The user-supplied map, waypoint YAML, localization launch and AMCL parameters are now included.** A minimal localization-only ROS package has been added; no old social policy code is included. This is not yet a standalone, hardware-validated reproduction package. No replacement coordinates or AMCL tuning have been invented.
+- ROS 2 Humble and TurtleBot3 Waffle;
+- map-based localisation using Nav2 AMCL;
+- laser-based pedestrian detection;
+- waypoint and motion control for six experimental conditions;
+- a browser-based external Human–Machine Interface (eHMI);
+- trial-level event and metadata logging.
+
+The repository contains the experiment controller, detector, eHMI, localisation configuration, map, waypoints, launch scripts and data logger. Participant data, videos and interview material are not included.
+
+## Experimental conditions
+
+The study used a 3 × 2 within-participant design:
+
+| Code | Robot movement strategy | eHMI condition |
+|---|---|---|
+| `SYN` | Straight yield | Neutral |
+| `SYE` | Straight yield | Explicit |
+| `SDN` | Side yield | Neutral |
+| `SDE` | Side yield | Explicit |
+| `CN` | Claim priority | Neutral |
+| `CE` | Claim priority | Explicit |
+
+The trial launcher requires the intended condition code as an argument. It does not randomise or determine the participant's condition order.
+
+## Repository structure
+
+```text
+MSc-Project-source-code/
+├── config/                     # Map, initial-pose record and waypoint configuration
+├── ehmi_web/                   # Browser display and ROS-to-HTTP bridge
+├── map_waypoint_control/       # Motion controller, initial-pose node and logger
+├── pedestrian_detection/       # Laser clustering and bottleneck-zone detection
+├── ros_packages/
+│   └── turtlebot3_hmi_social/  # Localisation-only ROS 2 package
+├── scripts/                    # Runtime checks and launch scripts
+└── README.md
+```
+
+The package name `turtlebot3_hmi_social` is retained for compatibility with the experiment workspace. In this repository it contains only the localisation launch and configuration; it does not contain a social-navigation policy or Nav2 motion controller.
 
 ## Requirements
 
-- Ubuntu with ROS 2 Humble and Python 3; Bash launchers.
-- ROS Python packages: `rclpy`, `geometry_msgs`, `sensor_msgs`, `nav_msgs`, `std_msgs`, `tf2_ros`; Python `yaml` (PyYAML, commonly installed as `python3-yaml`).
-- A working TurtleBot3 bringup on the robot, publishing laser scan, odometry and robot TF.
-- ROS Nav2 localization components (`nav2_bringup`, AMCL, map server, lifecycle manager) and RViz2. Build the bundled localization-only package as shown below.
-- The supplied map and waypoint coordinates must match the physical experiment layout.
-- Robot, control computer and browser device on the appropriate network. Use the same `ROS_DOMAIN_ID` on all ROS devices; the launchers default to `30`. The HTML page uses ordinary HTTP on port `8080`; Flask and rosbridge are not required.
+- Ubuntu with ROS 2 Humble
+- TurtleBot3 Waffle with working bringup, laser scan, odometry and TF
+- Nav2 localisation packages, including AMCL, map server and lifecycle manager
+- Python 3 and PyYAML
+- ROS Python dependencies used by the nodes: `rclpy`, `geometry_msgs`, `sensor_msgs`, `nav_msgs`, `std_msgs` and `tf2_ros`
+- A control computer and display device connected to the appropriate network
 
-## Recovered configuration and build
+All ROS devices must use the same `ROS_DOMAIN_ID`. The supplied runtime configuration defaults to `30`.
 
-The application scripts run directly. Only `ros_packages/turtlebot3_hmi_social` is a colcon package. Its historical name is retained for startup compatibility: it includes **only localization launch/configuration**, not social policy, motion controllers or automatic navigation. The launch and YAML files are unmodified user uploads. CMake/package metadata is newly added packaging, not recovered experimental source; maintainer contact and license remain explicitly unconfirmed.
+## Build the localisation package
 
-From this repository root, build into a separate overlay (do not overwrite the original experiment workspace):
+From the repository root:
 
 ```bash
 source /opt/ros/humble/setup.bash
-colcon build --base-paths ros_packages --build-base .localization_build --install-base .localization_install
+colcon build \
+  --base-paths ros_packages \
+  --build-base .localization_build \
+  --install-base .localization_install
+
 export TB3_WS_SETUP="$PWD/.localization_install/setup.bash"
 ```
 
-Repeat the `export TB3_WS_SETUP=...` in each new terminal, using the absolute path if not at the repository root. This selects the recovered package rather than a stale installed copy.
+Run the `export TB3_WS_SETUP=...` command again in each new terminal, using an absolute path when necessary.
 
-The waypoint file retains `validated_for_motion: false`. File completeness does not establish physical validation; this flag has not been changed. The startup AMCL initial pose differs from A_START by about 0.116 m and 0.037 rad. Trial scripts reset the pose to A_START; neither pose has been silently altered. Verify physical alignment at startup and after trial reset.
+## Running the system
 
-The supplied P5 is about 1.466 m from P1. The controller also contains odometry-based CLAIM motion; do not interpret the waypoint separation as the actual trial travel distance. Confirm this snapshot against the final experimental implementation.
+The commands below must be run from the repository root. Start the verified TurtleBot3 bringup on the robot separately.
 
-`config/bottleneck_map_v3_initial_pose.txt` is a reference record, not the active full waypoint configuration.
-
-## Quick start
-
-Clone/download the repository to any directory. Run these commands from its root. On the robot, start the existing, verified TurtleBot3 bringup separately.
-
-### 1. Configure and check on the control computer
+### 1. Check the configuration
 
 ```bash
 source scripts/runtime_env.sh
 python3 scripts/check_runtime.py
 ```
 
-The shared environment sources `/opt/ros/humble/setup.bash` and, when present, `~/turtlebot3_ws/install/setup.bash`. To use different locations, set these **before** sourcing it:
-
-```bash
-export TB3_WS_SETUP=/absolute/path/to/workspace/install/setup.bash
-export TB3_WAYPOINT_YAML=/absolute/path/to/bottleneck_v3_waypoints.yaml
-source scripts/runtime_env.sh
-python3 scripts/check_runtime.py
-```
-
-Optional overrides: `ROS_SETUP`, `ROS_DOMAIN_ID`, `TB3_LOCALIZATION_PKG`, `TB3_LOCALIZATION_LAUNCH`, `TB3_EHMI_HTML`, `TB3_DATA_ROOT`. Use absolute paths for file overrides. Preserve the calibrated map/configuration pairing.
-
-A non-ROS computer can check bundled file completeness with:
+A non-ROS computer can check the presence and structure of the bundled files without starting ROS:
 
 ```bash
 python3 scripts/check_runtime.py --files-only
 ```
 
-A missing waypoint file produces an explicit failure. None of these checks publishes a ROS message or starts motion.
+These checks do not publish ROS messages or command robot motion.
 
-### 2. Start the support system
+### 2. Start the support nodes
 
 ```bash
 bash scripts/start_system.sh
 ```
 
-Keep this terminal open. It starts the bundled localization launch, cluster detector, map-zone trigger and eHMI web bridge. It does not start the motion controller. Open `http://<control-computer-IP>:8080/` on the display device, since the bridge now runs on the computer executing this command. Do not simultaneously run another bridge on the same port or duplicate detector/localization nodes.
+Keep this terminal open. The script starts:
 
-Verify localization in RViz (start RViz separately if needed), the map-to-robot TF chain, laser alignment and live topic data. Topic names existing alone does not establish healthy data.
+- the localisation launch;
+- laser-based pedestrian detection;
+- bottleneck-zone detection;
+- the eHMI web bridge.
+
+It does not start the motion controller. Open the following address on the eHMI display device:
+
+```text
+http://<control-computer-IP>:8080/
+```
+
+Before running a trial, verify localisation, TF alignment and live topic data. Also confirm that no other controller or teleoperation node is publishing to `/cmd_vel`.
+
+Useful checks include:
 
 ```bash
 ros2 topic list
@@ -83,70 +121,92 @@ ros2 topic info /cmd_vel -v
 ros2 topic echo /pedestrian_zone_trigger --once
 ```
 
-Before starting a trial there must be no competing `/cmd_vel` publisher. Use the physical experimental layout and a working emergency stop. **The trial scripts publish the saved A_START initial pose automatically; place and orient the robot at that real-world start first.** They do not drive the robot back to A_START.
+### 3. Run a trial with data logging
 
-### 3. Run one condition, preferably with the logger
-
-In a second terminal at the repository root:
+Open a second terminal at the repository root and run:
 
 ```bash
 bash scripts/run_trial_with_logger.sh P01 1 SDE
 ```
 
-Arguments are participant ID, trial number, condition, and optional attempt number. Use the actual planned condition order; the script does not randomize or select it.
+Arguments are:
 
-| Code | Motion | Display |
-|---|---|---|
-| SYN | Straight yield | Neutral |
-| SYE | Straight yield | Explicit |
-| SDN | Side yield | Neutral |
-| SDE | Side yield | Explicit |
-| CN | Claim | Neutral |
-| CE | Claim | Explicit |
+```text
+PARTICIPANT_ID  TRIAL_NUMBER  CONDITION  [ATTEMPT]
+```
 
-Retry the same trial with a new attempt number:
+For example, to record a second attempt of the same trial:
 
 ```bash
 bash scripts/run_trial_with_logger.sh P01 1 SDE 2
 ```
 
-For an engineering run without data logging:
+For an engineering test without the trial logger:
 
 ```bash
 bash scripts/run_trial.sh SDE
 ```
 
-**These trial commands arm the controller and can move the robot.** Run one trial at a time. Keep the support terminal running. Stop the trial using Ctrl+C and verify the robot has stopped before stopping the support system or repositioning the robot. These packaging changes are not a hardware safety validation.
+The trial scripts publish the saved `A_START` initial pose but do not physically return the robot to its starting position. Place and orient the robot at the calibrated start before each run.
 
-### 4. Find the logged files
+## Logged data
 
-The default output directory is `experiment_data/` inside the repository. Override it with `TB3_DATA_ROOT` if needed. For example:
+By default, trial data are written under:
 
 ```text
 experiment_data/P01/P01_YYYYMMDD/trial_01_SDE_attempt_01/
-    metadata.json
-    events.csv
+├── metadata.json
+└── events.csv
 ```
 
-The bundled logger writes compact events and metadata; it does not write continuous `telemetry.csv`. Existing attempt directories are refused, not overwritten. `map_waypoint_control/run_trial_with_logger.sh` forwards to the maintained script under `scripts/`.
+The logger records compact trial events and metadata. Existing attempt directories are not overwritten. The output root can be changed by setting `TB3_DATA_ROOT` before sourcing the runtime environment.
 
-For the existing optional video synchronization workflow, follow the logger launcher's printed instructions and publish `/experiment_sync_marker` from another sourced terminal. Do not treat manual clap/message timing as frame-exact synchronization.
+The `experiment_data/` directory is excluded from Git so that study records are not uploaded accidentally.
+
+## Optional configuration overrides
+
+The runtime scripts use repository-relative paths. The following environment variables may be set before sourcing `scripts/runtime_env.sh`:
+
+- `ROS_SETUP`
+- `TB3_WS_SETUP`
+- `ROS_DOMAIN_ID`
+- `TB3_WAYPOINT_YAML`
+- `TB3_LOCALIZATION_PKG`
+- `TB3_LOCALIZATION_LAUNCH`
+- `TB3_EHMI_HTML`
+- `TB3_DATA_ROOT`
+
+Example:
+
+```bash
+export TB3_WS_SETUP=/absolute/path/to/install/setup.bash
+export TB3_WAYPOINT_YAML=/absolute/path/to/bottleneck_v3_waypoints.yaml
+source scripts/runtime_env.sh
+```
+
+The supplied map, initial pose and waypoint coordinates correspond to the experiment configuration and should be kept together. Recalibrate them before using the software in a different physical layout.
 
 ## Troubleshooting
 
-| Symptom | Action |
+| Problem | Check |
 |---|---|
-| Missing waypoint YAML | Recover the original calibrated file; set `TB3_WAYPOINT_YAML` or place it under `config/`. |
-| Localization package/launch missing | Build the bundled localization package and set TB3_WS_SETUP to its overlay setup file. |
-| `/pedestrian_zone_trigger` missing | Check the base-system terminal; the zone node needs detector candidate points and valid TF. |
-| No `/amcl_pose` or incorrect map alignment | Check bringup, ROS domain, network, lifecycle state and the calibrated initial pose. |
-| Display cannot load | Use the IP of the computer running the bridge; check port 8080 and network reachability. |
-| Display loads but state does not change | Check `/ehmi_state`, `/ehmi_countdown` and ROS discovery; opening the HTML alone is not a live bridge test. |
-| Logger refuses an existing directory | Supply the next attempt number; retain earlier data. |
-| Another `/cmd_vel` publisher | Stop the competing controller/teleoperation node before retrying. |
+| Missing waypoint YAML | Confirm `config/bottleneck_v3_waypoints.yaml` exists or set `TB3_WAYPOINT_YAML`. |
+| Localisation package not found | Build the bundled ROS package and set `TB3_WS_SETUP` to its install overlay. |
+| No `/amcl_pose` | Check ROS discovery, Nav2 lifecycle state, TF and map alignment. |
+| No `/pedestrian_zone_trigger` | Check the detector nodes, laser input and required TF transforms. |
+| eHMI page does not load | Use the IP address of the computer running the bridge and check port `8080`. |
+| eHMI page loads but does not update | Check `/ehmi_state`, `/ehmi_countdown` and ROS discovery. |
+| Trial logger refuses a directory | Use the next attempt number; existing trial data are intentionally preserved. |
+| `/cmd_vel` already has a publisher | Stop the competing controller or teleoperation node before starting a trial. |
 
-## Validation and experimental interpretation
+## Safety and validation
 
-Packaging validation covers Python/Bash syntax, repository-relative paths, the HTTP handler and dependency failure paths. ROS graph integration, AMCL launch, signal handling on the deployed system, physical trajectories and all six end-to-end conditions require testing on the robot with the recovered configuration.
+The trial commands can move the robot. Use the original experimental safety procedures, maintain the required clearance and keep the emergency stop available. Run only one motion controller at a time.
 
-The controller's motion logic and numeric defaults, detector geometry, display content and logger data format were retained. The controller file has only a configurable waypoint-path change. Do not assume older project notes describe this snapshot's exact speeds, distances or timing. Preserve the actual experimental code before later engineering changes, and cite a verified commit/release in the dissertation.
+The repository provides configuration and dependency checks, but successful static checks do not replace physical validation. Before reuse, verify the map alignment, initial pose, waypoint geometry, laser detection and all six conditions on the intended robot and site.
+
+## Academic use
+
+This repository accompanies the MSc dissertation project *From Prediction to Behavioural Reliance: Explicit Next-Move Communication in Pedestrian–Robot Bottleneck Encounters* by Wang Zaipeng.
+
+When referring to the implementation, cite the repository URL together with the specific commit used for the submitted dissertation.
