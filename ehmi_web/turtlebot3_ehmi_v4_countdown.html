@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <title>TurtleBot3 eHMI — Scheme C Formal 6 Conditions</title>
+
+  <style>
+    :root {
+      --green: #17823b;
+      --yellow: #f2c230;
+      --black: #000000;
+      --white: #ffffff;
+      --dark-text: #111111;
+      --bubble: #ffffff;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--black);
+    }
+
+    body { min-height: 100dvh; }
+
+    #screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding:
+        max(18px, env(safe-area-inset-top))
+        max(18px, env(safe-area-inset-right))
+        max(18px, env(safe-area-inset-bottom))
+        max(18px, env(safe-area-inset-left));
+      background: var(--black);
+      color: var(--white);
+      transition: background-color 120ms linear;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #screen.bg-green { background: var(--green); color: var(--white); }
+    #screen.bg-yellow { background: var(--yellow); color: var(--dark-text); }
+    #screen.bg-black { background: var(--black); color: var(--white); }
+
+    .content {
+      width: 100%;
+      max-width: 980px;
+      min-height: 74vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(12px, 2.2vh, 24px);
+      text-align: center;
+    }
+
+    /* Neutral deliberately resembles a machine status display. */
+    .status-label {
+      font-size: clamp(18px, 3vw, 32px);
+      font-weight: 750;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.78;
+    }
+
+    .headline {
+      width: 100%;
+      font-size: clamp(38px, 7vw, 88px);
+      line-height: 1.02;
+      font-weight: 850;
+      letter-spacing: 0.005em;
+      overflow-wrap: anywhere;
+    }
+
+    .detail {
+      width: 100%;
+      font-size: clamp(23px, 4vw, 46px);
+      line-height: 1.12;
+      font-weight: 700;
+      letter-spacing: 0.005em;
+    }
+
+    /* Explicit deliberately looks like the robot is speaking to the pedestrian. */
+    .speech-bubble {
+      width: min(92vw, 900px);
+      padding: clamp(20px, 3.2vh, 38px) clamp(22px, 4vw, 48px);
+      border-radius: clamp(24px, 4vw, 46px);
+      background: var(--bubble);
+      color: var(--dark-text);
+      position: relative;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+    }
+
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -22px;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 24px solid transparent;
+      border-right: 24px solid transparent;
+      border-top: 26px solid var(--bubble);
+    }
+
+    .speech-kicker {
+      font-size: clamp(17px, 2.8vw, 28px);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.65;
+      margin-bottom: 10px;
+    }
+
+    .speech-main {
+      font-size: clamp(38px, 6.8vw, 84px);
+      line-height: 1.02;
+      font-weight: 850;
+      letter-spacing: -0.01em;
+    }
+
+    .speech-sub {
+      margin-top: 14px;
+      font-size: clamp(23px, 4vw, 45px);
+      line-height: 1.12;
+      font-weight: 700;
+    }
+
+    .arrow-wrap {
+      width: min(48vw, 290px);
+      height: min(29vh, 245px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .arrow {
+      display: inline-block;
+      font-size: clamp(125px, 25vw, 250px);
+      line-height: 0.85;
+      font-weight: 900;
+      transform-origin: center;
+    }
+
+    .arrow.moving-up { animation: moveUp 0.85s ease-in-out infinite; }
+    .arrow.moving-up-left { animation: moveUpLeft 0.85s ease-in-out infinite; }
+    .arrow.moving-down { animation: moveDown 0.85s ease-in-out infinite; }
+
+    @keyframes moveUp {
+      0%, 100% { transform: translateY(16px); }
+      50%      { transform: translateY(-20px); }
+    }
+    @keyframes moveUpLeft {
+      0%, 100% { transform: translate(13px, 13px); }
+      50%      { transform: translate(-18px, -18px); }
+    }
+    @keyframes moveDown {
+      0%, 100% { transform: translateY(-16px); }
+      50%      { transform: translateY(20px); }
+    }
+
+    .hidden { display: none !important; }
+
+    #testPanel {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: calc(8px + env(safe-area-inset-bottom));
+      z-index: 1000;
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 7px;
+      border-radius: 10px;
+      background: rgba(20, 20, 20, 0.94);
+    }
+
+    #testPanel button {
+      min-height: 42px;
+      border: 1px solid #777;
+      border-radius: 7px;
+      background: #111;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    body.test-mode #testPanel { display: grid; }
+  </style>
+</head>
+
+<body>
+  <main id="screen" class="bg-black" aria-live="polite">
+    <section id="content" class="content">
+      <div id="statusLabel" class="status-label hidden"></div>
+      <div id="headline" class="headline hidden"></div>
+
+      <div id="speechBubble" class="speech-bubble hidden">
+        <div id="speechKicker" class="speech-kicker">ROBOT</div>
+        <div id="speechMain" class="speech-main"></div>
+        <div id="speechSub" class="speech-sub hidden"></div>
+      </div>
+
+      <div id="arrowWrap" class="arrow-wrap hidden" aria-hidden="true">
+        <div id="arrow" class="arrow"></div>
+      </div>
+
+      <div id="detail" class="detail hidden"></div>
+    </section>
+  </main>
+
+  <div id="testPanel">
+    <button data-state="APPROACH">APPROACH</button>
+    <button data-state="NEUTRAL_DETECTED">N DETECTED</button>
+    <button data-state="NEUTRAL_STOPPED">N STOPPED</button>
+    <button data-state="NEUTRAL_MOVING">N MOVING</button>
+
+    <button data-state="EXPLICIT_DETECTED">E DETECTED</button>
+    <button data-state="EXPLICIT_STRAIGHT_PRE">SY PRE</button>
+    <button data-state="EXPLICIT_STRAIGHT_RUNNING">SY RUN</button>
+    <button data-state="EXPLICIT_STRAIGHT_COMPLETE">SY DONE</button>
+
+    <button data-state="EXPLICIT_SIDE_PRE">SD PRE</button>
+    <button data-state="EXPLICIT_SIDE_STAGE1">SD STAGE1</button>
+    <button data-state="EXPLICIT_SIDE_STAGE2">SD STAGE2</button>
+    <button data-state="EXPLICIT_SIDE_COMPLETE">SD DONE</button>
+
+    <button data-state="EXPLICIT_CLAIM_PRE">C PRE</button>
+    <button data-state="EXPLICIT_CLAIM_RUNNING">C RUN</button>
+    <button data-state="EXPLICIT_CLAIM_COMPLETE">C DONE</button>
+  </div>
+
+  <script>
+    /*
+      FORMAL eHMI — SCHEME C — 2026-08-19
+
+      NEUTRAL:
+        Machine-like current status only.
+        No first-person language, future action, arrow, or ROW instruction.
+
+      EXPLICIT:
+        Robot speaks directly to the pedestrian using first-person,
+        conversational, prospective intention language.
+        Stage updates remain tied to real controller states.
+
+      The page never controls motion. It only renders /ehmi_state.
+    */
+
+    const screen = document.getElementById("screen");
+    const statusLabel = document.getElementById("statusLabel");
+    const headline = document.getElementById("headline");
+    const speechBubble = document.getElementById("speechBubble");
+    const speechMain = document.getElementById("speechMain");
+    const speechSub = document.getElementById("speechSub");
+    const arrowWrap = document.getElementById("arrowWrap");
+    const arrow = document.getElementById("arrow");
+    const detail = document.getElementById("detail");
+
+    function resetScreen() {
+      screen.className = "";
+      statusLabel.classList.add("hidden");
+      statusLabel.textContent = "";
+      headline.classList.add("hidden");
+      headline.textContent = "";
+      speechBubble.classList.add("hidden");
+      speechMain.textContent = "";
+      speechSub.classList.add("hidden");
+      speechSub.textContent = "";
+      arrowWrap.classList.add("hidden");
+      arrow.className = "arrow";
+      arrow.textContent = "";
+      detail.classList.add("hidden");
+      detail.textContent = "";
+    }
+
+    function setBackground(type) {
+      screen.className = "";
+      if (type === "green") screen.classList.add("bg-green");
+      else if (type === "yellow") screen.classList.add("bg-yellow");
+      else screen.classList.add("bg-black");
+    }
+
+    function showArrow(symbol, motionClass = null) {
+      arrowWrap.classList.remove("hidden");
+      arrow.textContent = symbol;
+      arrow.className = "arrow";
+      if (motionClass) arrow.classList.add(motionClass);
+    }
+
+    function showNeutralStatus(text, background = "yellow") {
+      resetScreen();
+      setBackground(background);
+      statusLabel.textContent = "ROBOT STATUS";
+      statusLabel.classList.remove("hidden");
+      headline.textContent = text;
+      headline.classList.remove("hidden");
+    }
+
+    function showExplicit(main, sub = "", symbol = "", motion = null) {
+      resetScreen();
+      setBackground("yellow");
+      speechMain.textContent = main;
+      speechBubble.classList.remove("hidden");
+      if (sub) {
+        speechSub.textContent = sub;
+        speechSub.classList.remove("hidden");
+      }
+      if (symbol) showArrow(symbol, motion);
+    }
+
+    window.setHMIState = function(state) {
+      const s = String(state || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+      switch (s) {
+        case "APPROACH":
+        case "ROBOT_MOVING":
+          showNeutralStatus("MOVING", "green");
+          break;
+
+        /* ---------------- NEUTRAL: machine status only ---------------- */
+        case "NEUTRAL_DETECTED":
+        case "PEDESTRIAN_DETECTED":
+          showNeutralStatus("PEDESTRIAN DETECTED");
+          break;
+
+        case "NEUTRAL_STOPPED":
+        case "NEUTRAL_ACTION":
+          showNeutralStatus("STOPPED");
+          break;
+
+        case "NEUTRAL_MOVING":
+          showNeutralStatus("MOVING");
+          break;
+
+        /* ---------------- EXPLICIT: robot speaks to the person ---------------- */
+        case "EXPLICIT_DETECTED":
+          showExplicit("I SEE YOU", "Give me a moment");
+          break;
+
+        case "EXPLICIT_STRAIGHT_PRE":
+          showExplicit("GIVE ME A MOMENT", "I'll move back for you", "↑");
+          break;
+
+        case "EXPLICIT_STRAIGHT_RUNNING":
+          showExplicit("I'M MAKING SPACE FOR YOU", "I'm moving back", "↑", "moving-up");
+          break;
+
+        case "EXPLICIT_STRAIGHT_COMPLETE":
+          showExplicit("YOU CAN GO FIRST", "I'll wait here");
+          break;
+
+        case "EXPLICIT_SIDE_PRE":
+          showExplicit("GIVE ME A MOMENT", "I'll move aside for you", "↖");
+          break;
+
+        case "EXPLICIT_SIDE_STAGE1":
+          showExplicit("I'M MAKING SPACE FOR YOU", "I'm moving back first", "↑", "moving-up");
+          break;
+
+        case "EXPLICIT_SIDE_STAGE2":
+        case "EXPLICIT_SIDE_RUNNING":
+          showExplicit("I'M MAKING SPACE FOR YOU", "I'm moving aside", "↖", "moving-up-left");
+          break;
+
+        case "EXPLICIT_SIDE_COMPLETE":
+          showExplicit("YOU CAN GO FIRST", "I'll wait here");
+          break;
+
+        case "EXPLICIT_CLAIM_PRE":
+          showExplicit("PLEASE GIVE ME SOME SPACE", "I'll go first", "↓");
+          break;
+
+        case "EXPLICIT_CLAIM_RUNNING":
+          showExplicit("I'M COMING THROUGH", "Please wait", "↓", "moving-down");
+          break;
+
+        case "EXPLICIT_CLAIM_COMPLETE":
+          showExplicit("THANK YOU", "I've passed");
+          break;
+
+        case "DONE":
+        case "BLANK":
+        case "BLACK":
+        case "OFF":
+          resetScreen();
+          setBackground("black");
+          break;
+
+        default:
+          console.warn("Unknown HMI state:", state);
+          resetScreen();
+          setBackground("black");
+      }
+    };
+
+    let lastRemoteState = null;
+
+    async function pollBridge() {
+      try {
+        const response = await fetch("/api/state", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        const remoteState = String(data.state || "");
+        if (remoteState !== lastRemoteState) {
+          lastRemoteState = remoteState;
+          window.setHMIState(remoteState);
+        }
+      } catch (err) {
+        /* Keep the last valid screen during brief bridge/network loss. */
+      }
+    }
+
+    setInterval(pollBridge, 200);
+    pollBridge();
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("test") === "1") {
+      document.body.classList.add("test-mode");
+      document.querySelectorAll("#testPanel button").forEach(btn => {
+        btn.addEventListener("click", () => {
+          window.setHMIState(btn.dataset.state);
+        });
+      });
+    }
+
+    window.setHMIState("APPROACH");
+  </script>
+</body>
+</html>

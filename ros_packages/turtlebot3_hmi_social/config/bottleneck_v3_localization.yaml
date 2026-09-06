@@ -1,0 +1,22 @@
+amcl:
+  ros__parameters:
+    # Frozen from the 2026-08-05 supervised v3-map alignment check.
+    # Do not change without a new physical-start calibration and recorded review.
+    use_sim_time: false
+    base_frame_id: base_footprint
+    global_frame_id: map
+    odom_frame_id: odom
+    scan_topic: scan
+    robot_model_type: nav2_amcl::DifferentialMotionModel
+    set_initial_pose: true
+    always_reset_initial_pose: true
+    initial_pose:
+      x: -0.02725936811252041
+      y: 0.058072660800424
+      z: 0.0
+      yaw: -0.0176901
+
+map_server:
+  ros__parameters:
+    use_sim_time: false
+    yaml_filename: ""

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>turtlebot3_hmi_social</name>
+  <version>0.0.1</version>
+  <description>Recovered localization configuration only; no social policy nodes. Packaging added September 6, 2026.</description>
+  <maintainer email="maintainer@example.com">Project maintainer (replace contact before distribution)</maintainer>
+  <license>TODO: confirm original project license</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend><exec_depend>nav2_amcl</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend><exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>
